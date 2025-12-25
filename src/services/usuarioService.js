@@ -24,13 +24,13 @@ export const usuarioService = {
     await axios.delete(`${API_URL}/${id}`);
     return id;
   },
-  actualizarUsuario: async (id, producto) => {
-    const response = await axios.put(`${API_URL}/${id}`, producto);
+  actualizarUsuari: async (id, usuario) => {
+    const response = await axios.put(`${API_URL}/${id}`, usuario);
     return response.data;
   },
 
-  crearUsuario: async (producto) => {
-    const response = await axios.post(API_URL,producto);
+  crearUsuario: async (usuario) => {
+    const response = await axios.post(API_URL,usuario);
     return response.data;
   },
 };
