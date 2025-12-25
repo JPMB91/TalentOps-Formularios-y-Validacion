@@ -1,14 +1,47 @@
 import { useEffect, useState } from "react";
 import userSchema from "../utils/userSchema";
 import { usuarioService } from "../services/usuarioService";
+import { useFileUpload } from "../hooks/useFileUpload";
+import { compressImage } from "../utils/compressImage";
 
 export const FormularioRegistro = () => {
+  const {
+    uploadFile,
+    progress,
+    uploading,
+    preview,
+    createPreview,
+    clearPreview,
+  } = useFileUpload();
+
+  const INITIAL_STATE = {
+    formData: {
+      nombre: "",
+      email: "",
+      password: "",
+      repeatPassword: "",
+      imagen: null,
+      imagenFile: null,
+    },
+    fieldStates: {
+      nombre: "idle",
+      email: "idle",
+      password: "idle",
+      repeatPassword: "idle",
+    },
+    errors: {},
+    touched: {},
+  };
+
   const [formData, setFormData] = useState({
     nombre: "",
     email: "",
     password: "",
     repeatPassword: "",
+    imagen: null,
   });
+
+  const [imagenFile, setImageFile] = useState(null);
 
   const [fieldStates, setFieldStates] = useState({
     nombre: "idle",
@@ -21,6 +54,43 @@ export const FormularioRegistro = () => {
   const [touched, setTouched] = useState({});
   const [isCheckingEmail, setIsCheckingEmail] = useState(false);
   const [emailAvailable, setEmailAvailable] = useState(null);
+
+  const resetForm = () => {
+    setFormData(INITIAL_STATE.formData);
+    setFieldStates(INITIAL_STATE.fieldStates);
+    setErrors(INITIAL_STATE.errors);
+    setTouched(INITIAL_STATE.touched);
+    setEmailAvailable(null);
+    clearPreview();
+  };
+
+  const handleImageChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert("La imagen debe ser menor a 5MB");
+      return;
+    }
+    try {
+      const imagenCompresa = await compressImage(file, 1920, 0.8);
+      createPreview(imagenCompresa);
+      setImageFile(imagenCompresa);
+      setFormData((prev) => ({ ...prev, imagen: null }));
+    } catch (error) {
+      console.error("Error comprimiendo:", error);
+      alert("Error comprimiendo la imagen");
+    }
+  };
+
+  const removeImage = () => {
+    clearPreview();
+    setImageFile(null);
+    setFormData((prev) => ({
+      ...prev,
+      imagen: null,
+    }));
+  };
 
   //validacion email en tiempo real
   useEffect(() => {
@@ -67,6 +137,16 @@ export const FormularioRegistro = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    if (imagenFile) {
+      try {
+        const result = await uploadFile(imagenFile);
+        formData.imagen = result.url;
+      } catch (error) {
+        alert("Error subiendo imagen");
+        return;
+      }
+    }
+
     const result = userSchema.safeParse(formData);
 
     if (!result.success) {
@@ -86,6 +166,7 @@ export const FormularioRegistro = () => {
       await usuarioService.crearUsuario(formData);
 
       alert("Registro exitoso");
+      resetForm();
     } catch (apiError) {
       setErrors({
         error: "Error al registrar usuario",
@@ -228,6 +309,45 @@ export const FormularioRegistro = () => {
           />
           {errors.repeatPassword && (
             <p className="error">{errors.repeatPassword}</p>
+          )}
+        </div>
+
+        {/* imagen */}
+        <div className="upload-container">
+          <label className="upload-label">Foto de Perfil</label>
+
+          {!preview ? (
+            <label className="upload-dropzone">
+              <span className="upload-dropzone-text">
+                Haz clic para subir imagen
+              </span>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageChange}
+                className="upload-input-hidden"
+              />
+            </label>
+          ) : (
+            <div className="preview-container">
+              <img src={preview} alt="Preview" className="preview-image" />
+              <button
+                type="button"
+                onClick={removeImage}
+                className="remove-image-btn"
+              >
+                ✕
+              </button>
+
+              {uploading && (
+                <div className="progress-bar-container">
+                  <div
+                    className="progress-bar"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+              )}
+            </div>
           )}
         </div>
 
